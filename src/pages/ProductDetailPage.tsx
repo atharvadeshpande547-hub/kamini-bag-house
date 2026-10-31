@@ -11,7 +11,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { Product, Review } from '@/types';
+import type { Product } from '@/types';
+import { attachReviewProfiles, type ReviewWithProfile } from '@/lib/reviews';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { finalPrice, formatCurrency, formatDate } from '@/lib/format';
@@ -28,7 +29,7 @@ export default function ProductDetailPage() {
   const { addToCart } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
-  const [reviews, setReviews] = useState<(Review & { profiles?: { name: string } | null })[]>([]);
+  const [reviews, setReviews] = useState<ReviewWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -72,10 +73,13 @@ export default function ProductDetailPage() {
           // Reviews
           supabase
             .from('reviews')
-            .select('*, profiles!reviews_user_id_fkey(name)')
+            .select('*')
             .eq('product_id', p.id)
             .order('created_at', { ascending: false })
-            .then(({ data: rev }) => setReviews((rev as (Review & { profiles?: { name: string } | null })[]) ?? []));
+            .then(async ({ data: rev, error: reviewsError }) => {
+              if (reviewsError) throw reviewsError;
+              setReviews(await attachReviewProfiles(rev ?? []));
+            });
         }
         setLoading(false);
       });
@@ -160,10 +164,11 @@ export default function ProductDetailPage() {
         rating: reviewRating,
         comment: reviewText,
       })
-      .select('*, profiles!reviews_user_id_fkey(name)')
+      .select('*')
       .maybeSingle();
     if (data) {
-      setReviews((prev) => [data as (Review & { profiles?: { name: string } | null }), ...prev]);
+      const [review] = await attachReviewProfiles([data]);
+      setReviews((prev) => [review, ...prev]);
       setShowReviewForm(false);
       setReviewText('');
       setReviewRating(5);

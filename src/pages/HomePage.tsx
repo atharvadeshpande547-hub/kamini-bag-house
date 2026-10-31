@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Truck, ShieldCheck, RotateCcw, Headphones, Quote } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { Product, Category, Review } from '@/types';
+import type { Product, Category } from '@/types';
+import { attachReviewProfiles, type ReviewWithProfile } from '@/lib/reviews';
 import ProductCard from '@/components/ProductCard';
 import CategoryCard from '@/components/CategoryCard';
 import Button from '@/components/ui/Button';
@@ -12,7 +13,7 @@ export default function HomePage() {
   const [newArrivals, setNewArrivals] = useState<Product[]>([]);
   const [bestsellers, setBestsellers] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [reviews, setReviews] = useState<(Review & { profiles?: { name: string } | null })[]>([]);
+  const [reviews, setReviews] = useState<ReviewWithProfile[]>([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -43,10 +44,13 @@ export default function HomePage() {
         .then(({ data, error }) => error ? Promise.reject(error) : data as Category[] | null),
       supabase
         .from('reviews')
-        .select('*, profiles!reviews_user_id_fkey(name)')
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(3)
-        .then(({ data, error }) => error ? Promise.reject(error) : data as (Review & { profiles?: { name: string } | null })[] | null),
+        .then(async ({ data, error }) => {
+          if (error) return Promise.reject(error);
+          return attachReviewProfiles(data ?? []);
+        }),
     ]).then(([f, n, b, c, r]) => {
       setFeatured(f ?? []);
       setNewArrivals(n ?? []);

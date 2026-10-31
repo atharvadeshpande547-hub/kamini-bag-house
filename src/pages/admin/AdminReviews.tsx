@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Star, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Review } from '@/types';
+import { attachReviewProfiles } from '@/lib/reviews';
 import { formatDate } from '@/lib/format';
 import Badge from '@/components/ui/Badge';
 
@@ -16,11 +17,18 @@ export default function AdminReviews() {
   const [loading, setLoading] = useState(true);
 
   async function load() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('reviews')
-      .select('*, product:products(name, slug), profiles!reviews_user_id_fkey(name)')
+      .select('*, product:products(name, slug)')
       .order('created_at', { ascending: false });
-    const enriched = (data ?? []).map((r: any) => ({
+    if (error) {
+      console.error('Reviews load failed:', error.message);
+      setReviews([]);
+      setLoading(false);
+      return;
+    }
+    const withProfiles = await attachReviewProfiles(data ?? []);
+    const enriched = withProfiles.map((r) => ({
       ...r,
       product_name: r.product?.name,
       product_slug: r.product?.slug,
