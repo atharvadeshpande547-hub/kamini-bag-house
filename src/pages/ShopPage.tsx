@@ -13,6 +13,7 @@ export default function ShopPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 12;
@@ -27,8 +28,13 @@ export default function ShopPage() {
   const discountOnly = searchParams.get('discount') === 'true';
 
   useEffect(() => {
-    supabase.from('categories').select('*').order('name').then(({ data }) => {
-      setCategories(data as Category[] ?? []);
+    supabase.from('categories').select('*').order('name').then(({ data, error }) => {
+      if (error) {
+        console.error('Categories load failed:', error.message);
+        setError('Could not load categories.');
+      } else {
+        setCategories(data as Category[] ?? []);
+      }
     });
   }, []);
 
@@ -44,7 +50,14 @@ export default function ShopPage() {
       query = query.ilike('name', `%${searchQuery}%`);
     }
 
-    query.then(({ data }) => {
+    query.then(({ data, error }) => {
+      if (error) {
+        console.error('Products load failed:', error.message);
+        setError('Could not load products. Please try again.');
+        setProducts([]);
+        setLoading(false);
+        return;
+      }
       let result = (data as Product[]) ?? [];
 
       // Client-side filters
@@ -74,6 +87,7 @@ export default function ShopPage() {
       }
 
       setProducts(result);
+      setError('');
       setLoading(false);
       setPage(1);
     });
@@ -313,6 +327,13 @@ export default function ShopPage() {
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="bg-stone-100 rounded-xl aspect-[3/4] animate-pulse" />
               ))}
+            </div>
+          ) : error ? (
+            <div className="text-center py-20">
+              <p className="text-red-600 text-lg mb-4">{error}</p>
+              <button onClick={() => window.location.reload()} className="text-amber-600 hover:text-amber-700 font-medium">
+                Try again
+              </button>
             </div>
           ) : pagedProducts.length === 0 ? (
             <div className="text-center py-20">

@@ -48,7 +48,12 @@ export default function ProductDetailPage() {
       .select('*, category:categories(*)')
       .eq('slug', slug)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error: queryError }) => {
+        if (queryError) {
+          console.error('Product load failed:', queryError.message);
+          setLoading(false);
+          return;
+        }
         const p = data as Product | null;
         setProduct(p);
         if (p) {

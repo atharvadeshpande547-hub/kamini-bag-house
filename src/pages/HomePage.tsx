@@ -13,6 +13,7 @@ export default function HomePage() {
   const [bestsellers, setBestsellers] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [reviews, setReviews] = useState<(Review & { profiles?: { name: string } | null })[]>([]);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -21,39 +22,53 @@ export default function HomePage() {
         .select('*, category:categories(*)')
         .eq('is_featured', true)
         .limit(4)
-        .then(({ data }) => data as Product[] | null),
+        .then(({ data, error }) => error ? Promise.reject(error) : data as Product[] | null),
       supabase
         .from('products')
         .select('*, category:categories(*)')
         .eq('is_new', true)
         .order('created_at', { ascending: false })
         .limit(4)
-        .then(({ data }) => data as Product[] | null),
+        .then(({ data, error }) => error ? Promise.reject(error) : data as Product[] | null),
       supabase
         .from('products')
         .select('*, category:categories(*)')
         .eq('is_bestseller', true)
         .limit(4)
-        .then(({ data }) => data as Product[] | null),
+        .then(({ data, error }) => error ? Promise.reject(error) : data as Product[] | null),
       supabase
         .from('categories')
         .select('*')
         .order('name')
-        .then(({ data }) => data as Category[] | null),
+        .then(({ data, error }) => error ? Promise.reject(error) : data as Category[] | null),
       supabase
         .from('reviews')
         .select('*, profiles!reviews_user_id_fkey(name)')
         .order('created_at', { ascending: false })
         .limit(3)
-        .then(({ data }) => data as (Review & { profiles?: { name: string } | null })[] | null),
+        .then(({ data, error }) => error ? Promise.reject(error) : data as (Review & { profiles?: { name: string } | null })[] | null),
     ]).then(([f, n, b, c, r]) => {
       setFeatured(f ?? []);
       setNewArrivals(n ?? []);
       setBestsellers(b ?? []);
       setCategories(c ?? []);
       setReviews(r ?? []);
+    }).catch((err) => {
+      console.error('Homepage data load failed:', err.message);
+      setError('Could not load products. Please check your connection and try again.');
     });
   }, []);
+
+  if (error) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-20 text-center">
+        <p className="text-red-600 mb-4">{error}</p>
+        <button onClick={() => window.location.reload()} className="text-amber-600 font-medium">
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>
